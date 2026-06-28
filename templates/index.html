@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insumos Donados</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f0f4f0; }
+    .top-bar { background: #2c6e49; color: #fff; padding: 1rem 1.5rem; }
+    .top-bar h1 { font-size: 1.3rem; margin: 0; font-weight: 700; }
+    .nav-tabs .nav-link.active { font-weight: 600; color: #2c6e49; border-bottom-color: #2c6e49; }
+    .btn-verde { background: #2c6e49; border-color: #2c6e49; color: #fff; }
+    .btn-verde:hover { background: #1e4d33; border-color: #1e4d33; color: #fff; }
+    .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .card-header { background: #fff; font-weight: 600; border-bottom: 1px solid #e9ecef; }
+    .table th { font-size: .82rem; text-transform: uppercase; color: #6c757d; }
+    #spanTotal { font-size: 1.15rem; }
+    .badge-unidad { background: #e8f5e9; color: #2c6e49; font-weight: 600;
+                    padding: .25rem .55rem; border-radius: .4rem; font-size: .8rem; }
+    .preset-btn { font-size: .78rem; padding: .2rem .45rem; }
+    #presetsWrap { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="top-bar mb-4">
+  <h1>Registro de Insumos Donados — Terremoto Venezuela</h1>
+</div>
+
+<div class="container-lg">
+  <ul class="nav nav-tabs mb-4" id="tabs">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-registrar">Registrar Donacion</button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-productos">Productos</button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ===== TAB REGISTRAR ===== -->
+    <div class="tab-pane fade show active" id="tab-registrar">
+      <div class="row g-4">
+
+        <!-- Formulario izquierda -->
+        <div class="col-md-4">
+          <div class="card mb-3">
+            <div class="card-header">Nueva Donacion</div>
+            <div class="card-body">
+              <form id="formRegistro" autocomplete="off">
+
+                <div class="mb-3">
+                  <label class="form-label">Categoria</label>
+                  <select class="form-select" id="selectCategoria">
+                    <option value="">Seleccionar categoria...</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Producto</label>
+                  <select class="form-select" id="selectProducto" required disabled>
+                    <option value="">Primero elige una categoria</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Cantidad por envase / paquete</label>
+                  <div class="input-group mb-1">
+                    <input type="number" class="form-control" id="inputCantidad"
+                           min="0.001" step="any" placeholder="Ej: 500" required>
+                    <span class="input-group-text" id="spanUnidad">-</span>
+                  </div>
+                  <!-- Botones preset -->
+                  <div id="presetsWrap" class="d-flex flex-wrap gap-1 mt-1">
+                    <!-- llenados por JS -->
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Numero de envases / paquetes</label>
+                  <input type="number" class="form-control" id="inputUnidades"
+                         min="1" step="1" value="1" required>
+                </div>
+
+                <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                  <span class="text-muted">Total:</span>
+                  <span id="spanTotal" class="fw-bold text-success">-</span>
+                </div>
+
+                <button type="submit" class="btn btn-verde w-100">Registrar</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Acciones -->
+          <div class="card">
+            <div class="card-header">Acciones del Dia</div>
+            <div class="card-body d-grid gap-2">
+              <button class="btn btn-success" onclick="exportarCSV()">Exportar CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla registros derecha -->
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span>Registros del Dia</span>
+              <div class="d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm" id="filtroCat" style="width:auto">
+                  <option value="">Todas las categorias</option>
+                </select>
+                <span class="badge bg-secondary" id="badgeCuenta">0</span>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Hora</th>
+                      <th>Categoria</th>
+                      <th>Producto</th>
+                      <th>Cant./Envase</th>
+                      <th>Envases</th>
+                      <th>Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyRegistros">
+                    <tr id="trVacioR">
+                      <td colspan="7" class="text-center text-muted py-4">Sin registros aun</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== TAB PRODUCTOS ===== -->
+    <div class="tab-pane fade" id="tab-productos">
+      <div class="row g-4">
+
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-header">Nuevo Producto</div>
+            <div class="card-body">
+              <form id="formProducto" autocomplete="off">
+                <div class="mb-3">
+                  <label class="form-label">Categoria</label>
+                  <select class="form-select" id="inputCategoria" required>
+                    <option value="Alimentos Basicos">Alimentos Basicos</option>
+                    <option value="Agua y Bebidas">Agua y Bebidas</option>
+                    <option value="Higiene Personal">Higiene Personal</option>
+                    <option value="Salud y Medicamentos">Salud y Medicamentos</option>
+                    <option value="Ropa y Calzado">Ropa y Calzado</option>
+                    <option value="Bebes y Ninos">Bebes y Ninos</option>
+                    <option value="Limpieza del Hogar">Limpieza del Hogar</option>
+                    <option value="Otros">Otros</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Nombre del producto</label>
+                  <input type="text" class="form-control" id="inputNombre"
+                         placeholder="Ej: Aceite de cocina" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Unidad de medida</label>
+                  <select class="form-select" id="inputUnidad" required>
+                    <option value="g">g — gramos</option>
+                    <option value="kg">kg — kilogramos</option>
+                    <option value="ml">ml — mililitros</option>
+                    <option value="L">L — litros</option>
+                    <option value="unidades">unidades</option>
+                    <option value="oz">oz — onzas</option>
+                    <option value="lb">lb — libras</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-verde w-100">Crear Producto</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-header">Productos Registrados</div>
+            <div class="card-body p-0">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Categoria</th>
+                    <th>Nombre</th>
+                    <th>Unidad</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyProductos">
+                  <tr id="trVacioP">
+                    <td colspan="4" class="text-center text-muted py-4">Sin productos aun</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="toast" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMsg"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // ---- CONFIG ----
+
+  const CAT_BADGE = {
+    "Alimentos Basicos":    "warning",
+    "Agua y Bebidas":       "info",
+    "Higiene Personal":     "primary",
+    "Salud y Medicamentos": "danger",
+    "Ropa y Calzado":       "secondary",
+    "Bebes y Ninos":        "pink",   // custom below
+    "Limpieza del Hogar":   "dark",
+    "Otros":                "light",
+  };
+
+  // presets por unidad: [valor, etiqueta]
+  const PRESETS = {
+    g:        [[100,"100g"],[250,"250g"],[500,"500g"],[1000,"1kg"],[2000,"2kg"],[3000,"3kg"]],
+    kg:       [[0.5,"0.5kg"],[1,"1kg"],[2,"2kg"],[5,"5kg"],[10,"10kg"],[25,"25kg"]],
+    ml:       [[250,"250ml"],[500,"500ml"],[750,"750ml"],[1000,"1L"],[1500,"1.5L"],[2000,"2L"]],
+    L:        [[0.5,"0.5L"],[1,"1L"],[2,"2L"],[5,"5L"],[10,"10L"],[20,"20L"]],
+    unidades: [[1,"1"],[5,"5"],[10,"10"],[20,"20"],[50,"50"],[100,"100"]],
+    oz:       [[8,"8oz"],[16,"16oz"],[32,"32oz"],[64,"64oz"]],
+    lb:       [[1,"1lb"],[2,"2lb"],[5,"5lb"],[10,"10lb"],[25,"25lb"]],
+  };
+
+  function catBadgeHtml(cat) {
+    const tipo = CAT_BADGE[cat] || "secondary";
+    if (tipo === "pink") {
+      return `<span class="badge" style="background:#d63384">${cat}</span>`;
+    }
+    const textClass = tipo === "warning" || tipo === "light" ? "text-dark" : "";
+    return `<span class="badge bg-${tipo} ${textClass}">${cat}</span>`;
+  }
+
+  // ---- ESTADO ----
+  let productos = [];
+  let todosRegistros = [];
+
+  const toastEl = document.getElementById("toast");
+  const bsToast = new bootstrap.Toast(toastEl, { delay: 2500 });
+
+  function mostrarToast(msg, tipo = "success") {
+    toastEl.className = `toast align-items-center text-white border-0 bg-${tipo}`;
+    document.getElementById("toastMsg").textContent = msg;
+    bsToast.show();
+  }
+
+  // ---- PRESETS ----
+
+  function actualizarPresets(unidad) {
+    const wrap = document.getElementById("presetsWrap");
+    const lista = PRESETS[unidad];
+    if (!lista) { wrap.style.display = "none"; return; }
+    wrap.style.display = "flex";
+    wrap.innerHTML = lista.map(([val, lbl]) =>
+      `<button type="button" class="btn btn-outline-secondary preset-btn"
+         onclick="setPreset(${val})">${lbl}</button>`
+    ).join("");
+  }
+
+  function setPreset(val) {
+    document.getElementById("inputCantidad").value = val;
+    recalcularTotal();
+    document.getElementById("inputCantidad").focus();
+  }
+
+  // ---- PRODUCTOS ----
+
+  function getCategorias() {
+    return [...new Set(productos.map(p => p.categoria))].sort();
+  }
+
+  function poblarSelectCategoria() {
+    const sel = document.getElementById("selectCategoria");
+    const anterior = sel.value;
+    sel.innerHTML = '<option value="">Seleccionar categoria...</option>';
+    getCategorias().forEach(cat => {
+      const o = document.createElement("option");
+      o.value = cat;
+      o.textContent = cat;
+      if (cat === anterior) o.selected = true;
+      sel.appendChild(o);
+    });
+    filtrarProductosPorCategoria(sel.value);
+  }
+
+  function filtrarProductosPorCategoria(cat) {
+    const sel = document.getElementById("selectProducto");
+    sel.innerHTML = "";
+    if (!cat) {
+      sel.disabled = true;
+      sel.innerHTML = '<option value="">Primero elige una categoria</option>';
+      document.getElementById("spanUnidad").textContent = "-";
+      document.getElementById("presetsWrap").style.display = "none";
+      document.getElementById("spanTotal").textContent = "-";
+      return;
+    }
+    sel.disabled = false;
+    const lista = productos.filter(p => p.categoria === cat);
+    sel.innerHTML = '<option value="">Seleccionar producto...</option>';
+    lista.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.dataset.unidad = p.unidad;
+      opt.textContent = `${p.nombre} (${p.unidad})`;
+      sel.appendChild(opt);
+    });
+  }
+
+  document.getElementById("selectCategoria").addEventListener("change", function () {
+    filtrarProductosPorCategoria(this.value);
+  });
+
+  async function cargarProductos() {
+    const res = await fetch("/api/productos");
+    productos = await res.json();
+
+    poblarSelectCategoria();
+
+    // Filtro de categorias en tabla registros
+    const filtroCat = document.getElementById("filtroCat");
+    const filtroVal = filtroCat.value;
+    filtroCat.innerHTML = '<option value="">Todas las categorias</option>';
+    getCategorias().forEach(cat => {
+      const o = document.createElement("option");
+      o.value = cat;
+      o.textContent = cat;
+      if (cat === filtroVal) o.selected = true;
+      filtroCat.appendChild(o);
+    });
+
+    // Tabla de productos
+    const tbody = document.getElementById("tbodyProductos");
+    tbody.querySelectorAll("tr.fila-producto").forEach(r => r.remove());
+    const vacio = document.getElementById("trVacioP");
+    if (productos.length === 0) {
+      vacio.style.display = "";
+    } else {
+      vacio.style.display = "none";
+      productos.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.className = "fila-producto";
+        tr.innerHTML = `
+          <td>${catBadgeHtml(p.categoria)}</td>
+          <td><strong>${p.nombre}</strong></td>
+          <td><span class="badge-unidad">${p.unidad}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger py-0 px-2"
+              onclick="eliminarProducto(${p.id})">x</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  document.getElementById("formProducto").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const data = {
+      nombre:    document.getElementById("inputNombre").value.trim(),
+      unidad:    document.getElementById("inputUnidad").value,
+      categoria: document.getElementById("inputCategoria").value,
+    };
+    const res = await fetch("/api/productos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      this.reset();
+      await cargarProductos();
+      mostrarToast("Producto creado");
+    }
+  });
+
+  async function eliminarProducto(id) {
+    if (!confirm("Eliminar este producto?")) return;
+    await fetch(`/api/productos/${id}`, { method: "DELETE" });
+    await cargarProductos();
+    mostrarToast("Producto eliminado", "warning");
+  }
+
+  // ---- REGISTROS ----
+
+  async function cargarRegistros() {
+    const res = await fetch("/api/registros");
+    todosRegistros = await res.json();
+    renderRegistros();
+  }
+
+  function renderRegistros() {
+    const filtro = document.getElementById("filtroCat").value;
+    const lista = filtro
+      ? todosRegistros.filter(r => r.categoria === filtro)
+      : todosRegistros;
+
+    document.getElementById("badgeCuenta").textContent = lista.length;
+
+    const tbody = document.getElementById("tbodyRegistros");
+    tbody.querySelectorAll("tr.fila-reg").forEach(r => r.remove());
+    const vacio = document.getElementById("trVacioR");
+
+    if (lista.length === 0) {
+      vacio.style.display = "";
+    } else {
+      vacio.style.display = "none";
+      lista.forEach(r => {
+        const hora = r.fecha.split(" ")[1];
+        const tr = document.createElement("tr");
+        tr.className = "fila-reg";
+        tr.innerHTML = `
+          <td class="text-muted small">${hora}</td>
+          <td>${catBadgeHtml(r.categoria)}</td>
+          <td><strong>${r.nombre}</strong></td>
+          <td>${r.cantidad_por_unidad} ${r.unidad}</td>
+          <td>${r.num_unidades}</td>
+          <td><span class="badge bg-success">${r.total} ${r.unidad}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger py-0 px-2"
+              onclick="eliminarRegistro(${r.id})">x</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  document.getElementById("filtroCat").addEventListener("change", renderRegistros);
+
+  async function eliminarRegistro(id) {
+    await fetch(`/api/registros/${id}`, { method: "DELETE" });
+    await cargarRegistros();
+  }
+
+  // ---- TOTAL + PRESETS ----
+
+  function recalcularTotal() {
+    const cant = parseFloat(document.getElementById("inputCantidad").value) || 0;
+    const num  = parseInt(document.getElementById("inputUnidades").value) || 0;
+    const opt  = document.getElementById("selectProducto").selectedOptions[0];
+    const unidad = opt ? opt.dataset.unidad : "";
+    const spanTotal = document.getElementById("spanTotal");
+    if (cant > 0 && num > 0 && unidad) {
+      spanTotal.textContent = `${parseFloat((cant * num).toFixed(4))} ${unidad}`;
+    } else {
+      spanTotal.textContent = "-";
+    }
+  }
+
+  document.getElementById("selectProducto").addEventListener("change", function () {
+    const opt = this.selectedOptions[0];
+    const unidad = opt ? (opt.dataset.unidad || "") : "";
+    document.getElementById("spanUnidad").textContent = unidad || "-";
+    actualizarPresets(unidad);
+    recalcularTotal();
+  });
+
+  document.getElementById("inputCantidad").addEventListener("input", recalcularTotal);
+  document.getElementById("inputUnidades").addEventListener("input", recalcularTotal);
+
+  document.getElementById("formRegistro").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const data = {
+      producto_id:        parseInt(document.getElementById("selectProducto").value),
+      cantidad_por_unidad: parseFloat(document.getElementById("inputCantidad").value),
+      num_unidades:        parseInt(document.getElementById("inputUnidades").value),
+    };
+    const res = await fetch("/api/registros", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      document.getElementById("inputCantidad").value = "";
+      document.getElementById("inputUnidades").value = "1";
+      document.getElementById("spanTotal").textContent = "-";
+      await cargarRegistros();
+      mostrarToast("Donacion registrada");
+    }
+  });
+
+  // ---- EXPORT ----
+
+  function exportarCSV() { window.location.href = "/api/export"; }
+
+  // ---- INIT ----
+  cargarProductos();
+  cargarRegistros();
+</script>
+</body>
+</html>
