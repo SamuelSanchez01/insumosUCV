@@ -55,10 +55,12 @@
       from { transform: translateX(110%); opacity: 0; }
       to   { transform: translateX(0);    opacity: 1; }
     }
-    /* En movil el toast sale ARRIBA (no detras del teclado), ancho completo */
+    /* En movil: toast ARRIBA (no detras del teclado) y tabla de Productos compacta */
     @media (max-width: 575.98px) {
       #toastWrap { top: 0 !important; bottom: auto !important; left: 0; right: 0; }
       #toastWrap #toast { width: 100%; }
+      #tablaProductos td, #tablaProductos th { padding-left: .4rem; padding-right: .4rem; font-size: .82rem; }
+      #tbodyProductos .badge { white-space: normal; font-size: .66rem; }
     }
   </style>
 </head>
@@ -252,21 +254,23 @@
           <div class="card">
             <div class="card-header">Productos Registrados</div>
             <div class="card-body p-0">
-              <table class="table table-hover mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>Categoria</th>
-                    <th>Nombre</th>
-                    <th>Unidad</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyProductos">
-                  <tr id="trVacioP">
-                    <td colspan="4" class="text-center text-muted py-4">Sin productos aun</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tablaProductos">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Categoria</th>
+                      <th>Nombre</th>
+                      <th>Unidad</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyProductos">
+                    <tr id="trVacioP">
+                      <td colspan="4" class="text-center text-muted py-4">Sin productos aun</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -284,6 +288,23 @@
       <span id="toastIcon" class="ms-3 d-flex"></span>
       <div class="toast-body" id="toastMsg"></div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmacion (borrados) -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar eliminacion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="modalConfirmarMsg">Estas seguro?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="modalConfirmarBtn">Eliminar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -565,8 +586,30 @@
     }
   });
 
+  // Modal de confirmacion reutilizable: devuelve una promesa true/false.
+  // Evita borrados accidentales (importante en movil, donde es facil pulsar
+  // la "x" sin querer y perder datos).
+  const modalConfirmarEl = document.getElementById("modalConfirmar");
+  const bsModalConfirmar = new bootstrap.Modal(modalConfirmarEl);
+
+  function confirmar(mensaje) {
+    return new Promise(resolve => {
+      document.getElementById("modalConfirmarMsg").textContent = mensaje;
+      const btn = document.getElementById("modalConfirmarBtn");
+      function limpiar() {
+        btn.removeEventListener("click", onOk);
+        modalConfirmarEl.removeEventListener("hidden.bs.modal", onCancel);
+      }
+      function onOk()     { limpiar(); bsModalConfirmar.hide(); resolve(true); }
+      function onCancel() { limpiar(); resolve(false); }
+      btn.addEventListener("click", onOk);
+      modalConfirmarEl.addEventListener("hidden.bs.modal", onCancel);
+      bsModalConfirmar.show();
+    });
+  }
+
   async function eliminarProducto(id) {
-    if (!confirm("Eliminar este producto?")) return;
+    if (!(await confirmar("¿Eliminar este producto? Esta accion no se puede deshacer."))) return;
     await fetch(`/api/productos/${id}`, { method: "DELETE" });
     await cargarProductos();
     mostrarToast("Producto eliminado", "warning");
@@ -619,8 +662,10 @@
   document.getElementById("filtroCat").addEventListener("change", renderRegistros);
 
   async function eliminarRegistro(id) {
+    if (!(await confirmar("¿Eliminar este registro? Esta accion no se puede deshacer."))) return;
     await fetch(`/api/registros/${id}`, { method: "DELETE" });
     await cargarRegistros();
+    mostrarToast("Registro eliminado", "warning");
   }
 
   // ---- TOTAL + PRESETS ----
