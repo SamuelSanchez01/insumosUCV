@@ -33,6 +33,17 @@
     }
     .search-item:last-child { border-bottom: none; }
     .search-item:hover, .search-item.activo { background: #e8f5e9; }
+
+    /* Icono de ayuda (estilo Lucide, SVG inline — sin CDN) */
+    .info-icon { color: #9aa0a6; cursor: help; vertical-align: -2px;
+                 margin-left: .3rem; transition: color .15s ease; }
+    .info-icon:hover { color: #2c6e49; }
+
+    /* Icono de lupa dentro del buscador de producto (estilo Lucide, SVG inline) */
+    #inputBusqueda { padding-right: 2.1rem; }
+    .lupa-icon { position: absolute; right: .7rem; top: 50%;
+                 transform: translateY(-50%); color: #9aa0a6;
+                 pointer-events: none; z-index: 3; display: flex; }
   </style>
 </head>
 <body>
@@ -69,13 +80,28 @@
                   <div style="position:relative" id="productoWrap">
                     <input type="text" class="form-control" id="inputBusqueda"
                            placeholder="Buscar producto..." autocomplete="off">
+                    <span class="lupa-icon" aria-hidden="true">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                      </svg>
+                    </span>
                     <div id="listaProductos" class="search-list" style="display:none"></div>
                     <input type="hidden" id="productoId">
                   </div>
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label">Cantidad por envase / paquete</label>
+                  <label class="form-label">
+                    Cantidad por envase / paquete
+                    <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Cuanto contiene UN solo envase o paquete. Ejemplo: una caja de acetaminofen con 4 blisters de 10 tabletas = 40 → escribe 40.">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+                      </svg>
+                    </span>
+                  </label>
                   <div class="input-group mb-1">
                     <input type="number" class="form-control" id="inputCantidad"
                            min="0.001" step="any" placeholder="Ej: 500" required>
@@ -88,7 +114,16 @@
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label">Numero de envases / paquetes</label>
+                  <label class="form-label">
+                    Numero de envases / paquetes
+                    <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="top"
+                          title="Cuantos envases o paquetes iguales recibiste. Ejemplo: si llegaron 3 cajas → escribe 3. El sistema multiplica: 40 × 3 = 120.">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+                      </svg>
+                    </span>
+                  </label>
                   <input type="number" class="form-control" id="inputUnidades"
                          min="1" step="1" value="1" required>
                 </div>
@@ -617,6 +652,9 @@
   function exportarCSV() { window.location.href = "/api/export"; }
 
   // ---- INIT ----
+  // Activa los tooltips (motor de Bootstrap ya incluido localmente — sin CDN)
+  [...document.querySelectorAll('[data-bs-toggle="tooltip"]')]
+    .forEach(el => new bootstrap.Tooltip(el));
   cargarProductos();
   cargarRegistros();
 </script>
