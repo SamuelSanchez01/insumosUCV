@@ -106,6 +106,11 @@ Fecha,Categoria,Producto,Cantidad por Unidad,Unidad,Num. Unidades,Total
 - `unidad` y `categoria` se usan para crear el producto si todavia no existe.
 - `total` se ignora: el backend lo recalcula como `cantidad x envases`.
 
+> **Cuidado:** a diferencia del import de productos (que omite repetidos por nombre unico),
+> el import de **registros NO es idempotente**: correr el mismo archivo dos veces duplica las
+> donaciones. Corre `dry_run=True` primero y, ante la duda, exporta un respaldo con
+> `export_registros_csv` antes de importar.
+
 Alias reconocidos por columna: `producto` tambien acepta `nombre`, `articulo`, `item`;
 `cantidad por unidad` acepta `cantidad`, `cantidad por envase`, `contenido`;
 `num unidades` acepta `envases`, `paquetes`, `numero de envases`.

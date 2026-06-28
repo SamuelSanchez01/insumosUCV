@@ -260,6 +260,10 @@ def import_registros_csv(path: str | None = None, csv_text: str | None = None,
     """Importa registros de donaciones desde un CSV (migrar planillas/Excel, o re-importar
     el CSV que exporta la propia app).
 
+    ADVERTENCIA: este import NO es idempotente. Los registros no tienen clave unica, asi que
+    correr el mismo archivo dos veces DUPLICA las donaciones. Usa dry_run=True primero y, ante
+    la duda, exporta un respaldo con export_registros_csv antes de importar.
+
     Columnas reconocidas (alias flexibles, sin acentos/mayusculas):
       producto|nombre              (requerido)
       cantidad por unidad|cantidad (requerido; numero, acepta coma decimal)
