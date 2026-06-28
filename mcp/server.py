@@ -297,68 +297,93 @@ def import_registros_csv(path: str | None = None, csv_text: str | None = None,
     except Exception as e:
         return {"ok": False, "error": f"No se pudo conectar: {e}"}
 
-    imported = prod_created = 0
     errors = []
-    with _client() as c:
-        for i, row in enumerate(rows, start=2):
-            nombre = _row_get(row, "nombre")
-            if not nombre:
-                errors.append({"fila": i, "error": "falta 'producto'"}); continue
-            try:
-                cantidad = _parse_number(_row_get(row, "cantidad"))
-                num = int(round(_parse_number(_row_get(row, "num"))))
-            except Exception as e:
-                errors.append({"fila": i, "producto": nombre,
-                               "error": f"numero invalido: {e}"}); continue
-            if cantidad <= 0 or num <= 0:
-                errors.append({"fila": i, "producto": nombre,
-                               "error": "cantidad y num. envases deben ser > 0"}); continue
-            fecha = _normalize_fecha(_row_get(row, "fecha"))
+    parsed = []   # validated rows: {fila, nombre, key, cantidad, num, fecha}
+    needed = {}   # key -> {nombre, unidad, categoria} for products not yet in the catalog
 
-            key = _norm(nombre)
-            prod = prod_map.get(key)
-            if prod is None:
-                if not create_missing_productos:
-                    errors.append({"fila": i, "producto": nombre,
-                                   "error": "producto no existe (create_missing_productos=False)"})
-                    continue
-                unidad = _row_get(row, "unidad") or default_unidad
-                categoria = _row_get(row, "categoria") or default_categoria
-                if dry_run:
-                    prod_map[key] = {"id": -1, "unidad": unidad, "categoria": categoria}
-                    prod_created += 1
-                    prod = prod_map[key]
-                else:
+    # Pass 1: parse + validate every row, and collect the set of missing products.
+    for i, row in enumerate(rows, start=2):
+        nombre = _row_get(row, "nombre")
+        if not nombre:
+            errors.append({"fila": i, "error": "falta 'producto'"}); continue
+        try:
+            cantidad = _parse_number(_row_get(row, "cantidad"))
+            num = int(round(_parse_number(_row_get(row, "num"))))
+        except Exception as e:
+            errors.append({"fila": i, "producto": nombre,
+                           "error": f"numero invalido: {e}"}); continue
+        if cantidad <= 0 or num <= 0:
+            errors.append({"fila": i, "producto": nombre,
+                           "error": "cantidad y num. envases deben ser > 0"}); continue
+        key = _norm(nombre)
+        if key not in prod_map and key not in needed:
+            needed[key] = {"nombre": nombre,
+                           "unidad": _row_get(row, "unidad") or default_unidad,
+                           "categoria": _row_get(row, "categoria") or default_categoria}
+        parsed.append({"fila": i, "nombre": nombre, "key": key,
+                       "cantidad": cantidad, "num": num,
+                       "fecha": _normalize_fecha(_row_get(row, "fecha"))})
+
+    # Create the missing products in a single pass, then refresh the catalog ONCE.
+    # (Avoids the O(n^2) refetch-per-creation; POST /api/productos returns no id.)
+    prod_created = 0
+    failed_keys = {}  # key -> error message, for products that could not be created
+    if needed and create_missing_productos:
+        if dry_run:
+            prod_created = len(needed)
+        else:
+            with _client() as c:
+                for key, info in needed.items():
                     try:
-                        cr = c.post("/api/productos",
-                                    json={"nombre": nombre, "unidad": unidad, "categoria": categoria})
+                        cr = c.post("/api/productos", json=info)
                     except Exception as e:
-                        errors.append({"fila": i, "producto": nombre, "error": f"conexion: {e}"}); continue
-                    if cr.status_code not in (200, 409):
-                        errors.append({"fila": i, "producto": nombre,
-                                       "error": f"no se pudo crear producto: {_safe_err(cr)}"}); continue
-                    prod_map = _fetch_product_map(c)  # refresh to learn the new id
-                    prod = prod_map.get(key)
-                    if prod is None:
-                        errors.append({"fila": i, "producto": nombre,
-                                       "error": "producto creado pero no encontrado"}); continue
+                        failed_keys[key] = f"conexion al crear producto: {e}"; continue
                     if cr.status_code == 200:
                         prod_created += 1
+                    elif cr.status_code != 409:  # 409 = ya existe -> aparecera al refrescar
+                        failed_keys[key] = f"no se pudo crear producto: {_safe_err(cr)}"
+                try:
+                    prod_map = _fetch_product_map(c)
+                except Exception as e:
+                    return {"ok": False, "error": f"No se pudo refrescar el catalogo: {e}"}
 
-            if dry_run:
-                imported += 1; continue
-            payload = {"producto_id": prod["id"],
-                       "cantidad_por_unidad": cantidad, "num_unidades": num}
-            if fecha:
-                payload["fecha"] = fecha
-            try:
-                resp = c.post("/api/registros", json=payload)
-            except Exception as e:
-                errors.append({"fila": i, "producto": nombre, "error": f"conexion: {e}"}); continue
-            if resp.status_code == 200:
+    def _missing_msg(key):
+        return failed_keys.get(key, "producto no existe (create_missing_productos=False)")
+
+    # Pass 2: import the validated registros.
+    imported = 0
+    if dry_run:
+        for rec in parsed:
+            if rec["key"] in prod_map or (create_missing_productos and rec["key"] in needed):
                 imported += 1
             elif len(errors) < MAX_ERRORS:
-                errors.append({"fila": i, "producto": nombre, "error": _safe_err(resp)})
+                errors.append({"fila": rec["fila"], "producto": rec["nombre"],
+                               "error": _missing_msg(rec["key"])})
+    else:
+        with _client() as c:
+            for rec in parsed:
+                prod = prod_map.get(rec["key"])
+                if prod is None:
+                    if len(errors) < MAX_ERRORS:
+                        errors.append({"fila": rec["fila"], "producto": rec["nombre"],
+                                       "error": _missing_msg(rec["key"])})
+                    continue
+                payload = {"producto_id": prod["id"],
+                           "cantidad_por_unidad": rec["cantidad"], "num_unidades": rec["num"]}
+                if rec["fecha"]:
+                    payload["fecha"] = rec["fecha"]
+                try:
+                    resp = c.post("/api/registros", json=payload)
+                except Exception as e:
+                    if len(errors) < MAX_ERRORS:
+                        errors.append({"fila": rec["fila"], "producto": rec["nombre"],
+                                       "error": f"conexion: {e}"})
+                    continue
+                if resp.status_code == 200:
+                    imported += 1
+                elif len(errors) < MAX_ERRORS:
+                    errors.append({"fila": rec["fila"], "producto": rec["nombre"],
+                                   "error": _safe_err(resp)})
 
     return {"ok": True, "dry_run": dry_run, "filas": len(rows), "delimitador": delim,
             "registros_importados": imported, "productos_creados": prod_created,
