@@ -20,6 +20,19 @@
                     padding: .25rem .55rem; border-radius: .4rem; font-size: .8rem; }
     .preset-btn { font-size: .78rem; padding: .2rem .45rem; }
     #presetsWrap { display: none; }
+    .search-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      max-height: 220px; overflow-y: auto;
+      background: #fff; border: 1px solid #ced4da;
+      border-top: none; border-radius: 0 0 .375rem .375rem;
+      z-index: 1050; box-shadow: 0 4px 10px rgba(0,0,0,.12);
+    }
+    .search-item {
+      padding: .45rem .75rem; cursor: pointer;
+      font-size: .9rem; border-bottom: 1px solid #f0f0f0;
+    }
+    .search-item:last-child { border-bottom: none; }
+    .search-item:hover, .search-item.activo { background: #e8f5e9; }
   </style>
 </head>
 <body>
@@ -60,9 +73,13 @@
 
                 <div class="mb-3">
                   <label class="form-label">Producto</label>
-                  <select class="form-select" id="selectProducto" required disabled>
-                    <option value="">Primero elige una categoria</option>
-                  </select>
+                  <div style="position:relative" id="productoWrap">
+                    <input type="text" class="form-control" id="inputBusqueda"
+                           placeholder="Primero elige una categoria"
+                           disabled autocomplete="off">
+                    <div id="listaProductos" class="search-list" style="display:none"></div>
+                    <input type="hidden" id="productoId">
+                  </div>
                 </div>
 
                 <div class="mb-3">
@@ -265,6 +282,61 @@
   // ---- ESTADO ----
   let productos = [];
   let todosRegistros = [];
+  let productosFiltrados = [];
+  let productoSeleccionado = null;
+
+  // ---- COMBOBOX PRODUCTO ----
+
+  function cerrarLista() {
+    document.getElementById("listaProductos").style.display = "none";
+  }
+
+  function renderLista() {
+    const lista  = document.getElementById("listaProductos");
+    const partes = document.getElementById("inputBusqueda").value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const items  = partes.length
+      ? productosFiltrados.filter(p => partes.every(t => p.nombre.toLowerCase().includes(t)))
+      : productosFiltrados;
+
+    if (items.length === 0) {
+      lista.innerHTML = '<div class="search-item text-muted">Sin resultados</div>';
+    } else {
+      lista.innerHTML = items.map(p =>
+        `<div class="search-item${productoSeleccionado && productoSeleccionado.id === p.id ? " activo" : ""}"
+              onmousedown="seleccionarProducto(${p.id})">
+           ${p.nombre} <span class="text-muted small">(${p.unidad})</span>
+         </div>`
+      ).join("");
+    }
+    lista.style.display = "block";
+  }
+
+  function seleccionarProducto(id) {
+    const p = productosFiltrados.find(x => x.id === id);
+    if (!p) return;
+    productoSeleccionado = p;
+    document.getElementById("inputBusqueda").value = `${p.nombre} (${p.unidad})`;
+    document.getElementById("productoId").value = p.id;
+    document.getElementById("spanUnidad").textContent = p.unidad;
+    actualizarPresets(p.unidad);
+    recalcularTotal();
+    cerrarLista();
+  }
+
+  document.getElementById("inputBusqueda").addEventListener("focus", renderLista);
+
+  document.getElementById("inputBusqueda").addEventListener("input", function () {
+    productoSeleccionado = null;
+    document.getElementById("productoId").value = "";
+    document.getElementById("spanUnidad").textContent = "-";
+    document.getElementById("presetsWrap").style.display = "none";
+    document.getElementById("spanTotal").textContent = "-";
+    renderLista();
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!document.getElementById("productoWrap").contains(e.target)) cerrarLista();
+  });
 
   const toastEl = document.getElementById("toast");
   const bsToast = new bootstrap.Toast(toastEl, { delay: 2500 });
@@ -315,26 +387,23 @@
   }
 
   function filtrarProductosPorCategoria(cat) {
-    const sel = document.getElementById("selectProducto");
-    sel.innerHTML = "";
+    const input = document.getElementById("inputBusqueda");
+    productoSeleccionado = null;
+    document.getElementById("productoId").value = "";
+    document.getElementById("spanUnidad").textContent = "-";
+    document.getElementById("presetsWrap").style.display = "none";
+    document.getElementById("spanTotal").textContent = "-";
+    input.value = "";
+    cerrarLista();
     if (!cat) {
-      sel.disabled = true;
-      sel.innerHTML = '<option value="">Primero elige una categoria</option>';
-      document.getElementById("spanUnidad").textContent = "-";
-      document.getElementById("presetsWrap").style.display = "none";
-      document.getElementById("spanTotal").textContent = "-";
+      productosFiltrados = [];
+      input.disabled = true;
+      input.placeholder = "Primero elige una categoria";
       return;
     }
-    sel.disabled = false;
-    const lista = productos.filter(p => p.categoria === cat);
-    sel.innerHTML = '<option value="">Seleccionar producto...</option>';
-    lista.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.dataset.unidad = p.unidad;
-      opt.textContent = `${p.nombre} (${p.unidad})`;
-      sel.appendChild(opt);
-    });
+    productosFiltrados = productos.filter(p => p.categoria === cat);
+    input.disabled = false;
+    input.placeholder = `Buscar producto... (${productosFiltrados.length})`;
   }
 
   document.getElementById("selectCategoria").addEventListener("change", function () {
@@ -463,10 +532,9 @@
   // ---- TOTAL + PRESETS ----
 
   function recalcularTotal() {
-    const cant = parseFloat(document.getElementById("inputCantidad").value) || 0;
-    const num  = parseInt(document.getElementById("inputUnidades").value) || 0;
-    const opt  = document.getElementById("selectProducto").selectedOptions[0];
-    const unidad = opt ? opt.dataset.unidad : "";
+    const cant   = parseFloat(document.getElementById("inputCantidad").value) || 0;
+    const num    = parseInt(document.getElementById("inputUnidades").value) || 0;
+    const unidad = productoSeleccionado ? productoSeleccionado.unidad : "";
     const spanTotal = document.getElementById("spanTotal");
     if (cant > 0 && num > 0 && unidad) {
       spanTotal.textContent = `${parseFloat((cant * num).toFixed(4))} ${unidad}`;
@@ -475,21 +543,17 @@
     }
   }
 
-  document.getElementById("selectProducto").addEventListener("change", function () {
-    const opt = this.selectedOptions[0];
-    const unidad = opt ? (opt.dataset.unidad || "") : "";
-    document.getElementById("spanUnidad").textContent = unidad || "-";
-    actualizarPresets(unidad);
-    recalcularTotal();
-  });
-
   document.getElementById("inputCantidad").addEventListener("input", recalcularTotal);
   document.getElementById("inputUnidades").addEventListener("input", recalcularTotal);
 
   document.getElementById("formRegistro").addEventListener("submit", async function (e) {
     e.preventDefault();
+    if (!productoSeleccionado) {
+      mostrarToast("Selecciona un producto", "warning");
+      return;
+    }
     const data = {
-      producto_id:        parseInt(document.getElementById("selectProducto").value),
+      producto_id:         productoSeleccionado.id,
       cantidad_por_unidad: parseFloat(document.getElementById("inputCantidad").value),
       num_unidades:        parseInt(document.getElementById("inputUnidades").value),
     };
@@ -499,9 +563,15 @@
       body: JSON.stringify(data),
     });
     if (res.ok) {
+      // Resetear solo cantidad/unidades, mantener categoria seleccionada
       document.getElementById("inputCantidad").value = "";
       document.getElementById("inputUnidades").value = "1";
       document.getElementById("spanTotal").textContent = "-";
+      document.getElementById("inputBusqueda").value = "";
+      document.getElementById("productoId").value = "";
+      document.getElementById("spanUnidad").textContent = "-";
+      document.getElementById("presetsWrap").style.display = "none";
+      productoSeleccionado = null;
       await cargarRegistros();
       mostrarToast("Donacion registrada");
     }
