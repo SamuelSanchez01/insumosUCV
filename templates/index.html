@@ -65,20 +65,10 @@
               <form id="formRegistro" autocomplete="off">
 
                 <div class="mb-3">
-                  <label class="form-label">Categoria</label>
-                  <div style="position:relative" id="categoriaWrap">
-                    <input type="text" class="form-control" id="inputCategoriaBusq"
-                           placeholder="Buscar categoria..." autocomplete="off">
-                    <div id="listaCategorias" class="search-list" style="display:none"></div>
-                  </div>
-                </div>
-
-                <div class="mb-3">
                   <label class="form-label">Producto</label>
                   <div style="position:relative" id="productoWrap">
                     <input type="text" class="form-control" id="inputBusqueda"
-                           placeholder="Primero elige una categoria"
-                           disabled autocomplete="off">
+                           placeholder="Buscar producto..." autocomplete="off">
                     <div id="listaProductos" class="search-list" style="display:none"></div>
                     <input type="hidden" id="productoId">
                   </div>
@@ -286,10 +276,8 @@
   let todosRegistros = [];
   let productosFiltrados   = [];
   let productoSeleccionado = null;
-  let categoriasFiltradas  = [];
-  let categoriaSeleccionada = null;
 
-  // ---- HELPERS COMBOBOX (genericos) ----
+  // ---- HELPER NAVEGACION LISTA ----
 
   function navLista(lista, dir) {
     const items   = [...lista.querySelectorAll(".search-item[data-key]")];
@@ -302,71 +290,6 @@
     next?.classList.add("activo");
     next?.scrollIntoView({ block: "nearest" });
   }
-
-  // ---- COMBOBOX CATEGORIA ----
-
-  function cerrarListaCategorias() {
-    document.getElementById("listaCategorias").style.display = "none";
-  }
-
-  function renderListaCategorias() {
-    const lista  = document.getElementById("listaCategorias");
-    const partes = document.getElementById("inputCategoriaBusq").value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const items  = partes.length
-      ? categoriasFiltradas.filter(c => partes.every(t => c.toLowerCase().includes(t)))
-      : categoriasFiltradas;
-
-    lista.innerHTML = items.length
-      ? items.map(c =>
-          `<div class="search-item${categoriaSeleccionada === c ? " activo" : ""}"
-                data-key="${c}"
-                onmousedown="seleccionarCategoria('${c.replace(/'/g, "\\'")}')">
-             ${c}
-           </div>`
-        ).join("")
-      : '<div class="search-item text-muted">Sin resultados</div>';
-    lista.style.display = "block";
-  }
-
-  function seleccionarCategoria(cat) {
-    categoriaSeleccionada = cat;
-    document.getElementById("inputCategoriaBusq").value = cat;
-    cerrarListaCategorias();
-    filtrarProductosPorCategoria(cat);
-    document.getElementById("inputBusqueda").focus();
-  }
-
-  document.getElementById("inputCategoriaBusq").addEventListener("focus", renderListaCategorias);
-
-  document.getElementById("inputCategoriaBusq").addEventListener("input", function () {
-    categoriaSeleccionada = null;
-    filtrarProductosPorCategoria(null);
-    renderListaCategorias();
-  });
-
-  document.getElementById("inputCategoriaBusq").addEventListener("keydown", function (e) {
-    const lista   = document.getElementById("listaCategorias");
-    const abierta = lista.style.display !== "none";
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (!abierta) { renderListaCategorias(); return; }
-      navLista(lista, "down");
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      navLista(lista, "up");
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const t = lista.querySelector(".search-item.activo") || lista.querySelector(".search-item[data-key]");
-      if (t) seleccionarCategoria(t.dataset.key);
-    } else if (e.key === "Escape") {
-      cerrarListaCategorias();
-    }
-  });
-
-  document.addEventListener("click", function (e) {
-    if (!document.getElementById("categoriaWrap").contains(e.target)) cerrarListaCategorias();
-  });
 
   // ---- COMBOBOX PRODUCTO ----
 
@@ -442,7 +365,6 @@
       if (t) seleccionarProducto(parseInt(t.dataset.key));
     } else if (e.key === "Escape") {
       cerrarLista();
-      document.getElementById("inputCategoriaBusq").focus();
     }
   });
 
@@ -450,12 +372,7 @@
   document.getElementById("inputCantidad").addEventListener("keydown", function (e) {
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      productoSeleccionado = null;
-      document.getElementById("productoId").value = "";
-      document.getElementById("inputBusqueda").value = "";
-      document.getElementById("spanUnidad").textContent = "-";
-      document.getElementById("presetsWrap").style.display = "none";
-      document.getElementById("spanTotal").textContent = "-";
+      resetProducto();
       document.getElementById("inputBusqueda").focus();
     } else if (e.key === "ArrowDown" || e.key === "Enter") {
       e.preventDefault();
@@ -514,45 +431,21 @@
     return [...new Set(productos.map(p => p.categoria))].sort();
   }
 
-  function poblarSelectCategoria() {
-    categoriasFiltradas = getCategorias();
-    // Si la categoria seleccionada ya no existe, limpiar
-    if (categoriaSeleccionada && !categoriasFiltradas.includes(categoriaSeleccionada)) {
-      categoriaSeleccionada = null;
-      document.getElementById("inputCategoriaBusq").value = "";
-      filtrarProductosPorCategoria(null);
-    } else if (categoriaSeleccionada) {
-      // Refrescar productos de la categoria actual
-      filtrarProductosPorCategoria(categoriaSeleccionada);
-    }
-  }
-
-  function filtrarProductosPorCategoria(cat) {
-    const input = document.getElementById("inputBusqueda");
+  function resetProducto() {
     productoSeleccionado = null;
     document.getElementById("productoId").value = "";
+    document.getElementById("inputBusqueda").value = "";
     document.getElementById("spanUnidad").textContent = "-";
     document.getElementById("presetsWrap").style.display = "none";
     document.getElementById("spanTotal").textContent = "-";
-    input.value = "";
     cerrarLista();
-    if (!cat) {
-      productosFiltrados = [];
-      input.disabled = true;
-      input.placeholder = "Primero elige una categoria";
-      return;
-    }
-    productosFiltrados = productos.filter(p => p.categoria === cat);
-    input.disabled = false;
-    input.placeholder = `Buscar producto... (${productosFiltrados.length})`;
   }
 
 
   async function cargarProductos() {
     const res = await fetch("/api/productos");
     productos = await res.json();
-
-    poblarSelectCategoria();
+    productosFiltrados = productos;
 
     // Filtro de categorias en tabla registros
     const filtroCat = document.getElementById("filtroCat");
@@ -715,7 +608,7 @@
       productoSeleccionado = null;
       await cargarRegistros();
       mostrarToast("Donacion registrada");
-      document.getElementById("inputCategoriaBusq").focus();
+      document.getElementById("inputBusqueda").focus();
     }
   });
 
