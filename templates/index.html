@@ -292,6 +292,23 @@
   </div>
 </div>
 
+<!-- Modal de confirmacion (borrados) -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar eliminacion</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="modalConfirmarMsg">Estas seguro?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="modalConfirmarBtn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/static/js/bootstrap.bundle.min.js"></script>
 <script>
   // ---- CONFIG ----
@@ -569,8 +586,30 @@
     }
   });
 
+  // Modal de confirmacion reutilizable: devuelve una promesa true/false.
+  // Evita borrados accidentales (importante en movil, donde es facil pulsar
+  // la "x" sin querer y perder datos).
+  const modalConfirmarEl = document.getElementById("modalConfirmar");
+  const bsModalConfirmar = new bootstrap.Modal(modalConfirmarEl);
+
+  function confirmar(mensaje) {
+    return new Promise(resolve => {
+      document.getElementById("modalConfirmarMsg").textContent = mensaje;
+      const btn = document.getElementById("modalConfirmarBtn");
+      function limpiar() {
+        btn.removeEventListener("click", onOk);
+        modalConfirmarEl.removeEventListener("hidden.bs.modal", onCancel);
+      }
+      function onOk()     { limpiar(); bsModalConfirmar.hide(); resolve(true); }
+      function onCancel() { limpiar(); resolve(false); }
+      btn.addEventListener("click", onOk);
+      modalConfirmarEl.addEventListener("hidden.bs.modal", onCancel);
+      bsModalConfirmar.show();
+    });
+  }
+
   async function eliminarProducto(id) {
-    if (!confirm("Eliminar este producto?")) return;
+    if (!(await confirmar("¿Eliminar este producto? Esta accion no se puede deshacer."))) return;
     await fetch(`/api/productos/${id}`, { method: "DELETE" });
     await cargarProductos();
     mostrarToast("Producto eliminado", "warning");
@@ -623,8 +662,10 @@
   document.getElementById("filtroCat").addEventListener("change", renderRegistros);
 
   async function eliminarRegistro(id) {
+    if (!(await confirmar("¿Eliminar este registro? Esta accion no se puede deshacer."))) return;
     await fetch(`/api/registros/${id}`, { method: "DELETE" });
     await cargarRegistros();
+    mostrarToast("Registro eliminado", "warning");
   }
 
   // ---- TOTAL + PRESETS ----
