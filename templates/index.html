@@ -44,6 +44,22 @@
     .lupa-icon { position: absolute; right: .7rem; top: 50%;
                  transform: translateY(-50%); color: #9aa0a6;
                  pointer-events: none; z-index: 3; display: flex; }
+
+    /* Sombra + franja dorada para que el toast rompa con el header verde */
+    #toast { box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.4);
+             border-left: 5px solid #ffc83d !important; }
+    #toastIcon svg { width: 20px; height: 20px; }
+    /* Animacion de entrada del toast: desliza de derecha a izquierda */
+    #toast.show { animation: toastInRight .35s ease; }
+    @keyframes toastInRight {
+      from { transform: translateX(110%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    /* En movil el toast sale ARRIBA (no detras del teclado), ancho completo */
+    @media (max-width: 575.98px) {
+      #toastWrap { top: 0 !important; bottom: auto !important; left: 0; right: 0; }
+      #toastWrap #toast { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -262,9 +278,10 @@
 </div>
 
 <!-- Toast -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+<div id="toastWrap" class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
   <div id="toast" class="toast align-items-center text-white border-0" role="alert">
-    <div class="d-flex">
+    <div class="d-flex align-items-center">
+      <span id="toastIcon" class="ms-3 d-flex"></span>
       <div class="toast-body" id="toastMsg"></div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>
@@ -433,10 +450,18 @@
   });
 
   const toastEl = document.getElementById("toast");
-  const bsToast = new bootstrap.Toast(toastEl, { delay: 2500 });
+  const bsToast = new bootstrap.Toast(toastEl, { delay: 3000 });
+
+  // Iconos del toast por tipo (SVG inline estilo Lucide — sin CDN)
+  const TOAST_ICONS = {
+    success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+    warning: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+    danger:  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+  };
 
   function mostrarToast(msg, tipo = "success") {
     toastEl.className = `toast align-items-center text-white border-0 bg-${tipo}`;
+    document.getElementById("toastIcon").innerHTML = TOAST_ICONS[tipo] || TOAST_ICONS.success;
     document.getElementById("toastMsg").textContent = msg;
     bsToast.show();
   }
@@ -642,7 +667,7 @@
       document.getElementById("presetsWrap").style.display = "none";
       productoSeleccionado = null;
       await cargarRegistros();
-      mostrarToast("Donacion registrada");
+      mostrarToast("Donacion registrada correctamente");
       document.getElementById("inputBusqueda").focus();
     }
   });
