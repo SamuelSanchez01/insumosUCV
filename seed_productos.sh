@@ -4,6 +4,7 @@
 BASE="${1:-http://localhost:8080}"
 
 ok=0
+exist=0
 fail=0
 
 crear() {
@@ -14,10 +15,13 @@ crear() {
   code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/productos" \
     -H "Content-Type: application/json" -d "$json")
   if [ "$code" = "200" ]; then
-    printf "  OK  %-35s %-12s %s\n" "$nombre" "($unidad)" "$categoria"
+    printf "  OK      %-35s %-12s %s\n" "$nombre" "($unidad)" "$categoria"
     ((ok++))
+  elif [ "$code" = "409" ]; then
+    printf "  EXISTE  %-35s ya registrado\n" "$nombre"
+    ((exist++))
   else
-    printf "  ERR %-35s HTTP %s\n" "$nombre" "$code"
+    printf "  ERROR   %-35s HTTP %s\n" "$nombre" "$code"
     ((fail++))
   fi
 }
@@ -161,7 +165,8 @@ crear "Utensilios desechables"   "unidades" "Otros"
 
 echo ""
 echo "============================================================"
-printf "  Resultado: %d creados" "$ok"
-[ "$fail" -gt 0 ] && printf ", %d errores" "$fail"
+printf "  Creados: %d" "$ok"
+[ "$exist" -gt 0 ] && printf "  |  Ya existian: %d" "$exist"
+[ "$fail"  -gt 0 ] && printf "  |  Errores: %d" "$fail"
 echo ""
 echo "============================================================"
