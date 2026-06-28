@@ -468,6 +468,9 @@
       this.reset();
       await cargarProductos();
       mostrarToast("Producto creado");
+    } else {
+      const body = await res.json();
+      mostrarToast(body.error || "Error al crear producto", "danger");
     }
   });
 

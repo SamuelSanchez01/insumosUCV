@@ -41,6 +41,14 @@ def init_db():
         conn.commit()
     except sqlite3.OperationalError:
         pass
+    # Si hay duplicados de nombre en BDs existentes, conserva solo el primero
+    conn.execute("""
+        DELETE FROM productos WHERE id NOT IN (
+            SELECT MIN(id) FROM productos GROUP BY nombre
+        )
+    """)
+    # Unique index on nombre (safe to run multiple times)
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre)")
     conn.commit()
     conn.close()
 
@@ -69,11 +77,15 @@ def create_producto():
     if not nombre or not unidad:
         return jsonify({"error": "Faltan datos"}), 400
     conn = get_db()
-    conn.execute(
-        "INSERT INTO productos (nombre, unidad, categoria) VALUES (?, ?, ?)",
-        (nombre, unidad, categoria),
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            "INSERT INTO productos (nombre, unidad, categoria) VALUES (?, ?, ?)",
+            (nombre, unidad, categoria),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"error": f"Ya existe un producto llamado \"{nombre}\""}), 409
     conn.close()
     return jsonify({"ok": True})
 
