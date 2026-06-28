@@ -33,6 +33,17 @@
     }
     .search-item:last-child { border-bottom: none; }
     .search-item:hover, .search-item.activo { background: #e8f5e9; }
+
+    /* Revelado por pasos (progressive disclosure) */
+    .campo-oculto  { max-height: 0; opacity: 0; overflow: hidden;
+                     transition: max-height .35s ease, opacity .25s ease; }
+    .campo-visible { max-height: 600px; opacity: 1;
+                     transition: max-height .45s ease, opacity .4s ease; }
+
+    /* Icono de ayuda (estilo Lucide) */
+    .info-icon { color: #9aa0a6; cursor: help; vertical-align: -2px;
+                 margin-left: .3rem; transition: color .15s ease; }
+    .info-icon:hover { color: #2c6e49; }
   </style>
 </head>
 <body>
@@ -74,31 +85,54 @@
                   </div>
                 </div>
 
-                <div class="mb-3">
-                  <label class="form-label">Cantidad por envase / paquete</label>
-                  <div class="input-group mb-1">
-                    <input type="number" class="form-control" id="inputCantidad"
-                           min="0.001" step="any" placeholder="Ej: 500" required>
-                    <span class="input-group-text" id="spanUnidad">-</span>
+                <!-- Campos que se revelan al seleccionar un producto -->
+                <div id="camposExtra" class="campo-oculto">
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Cantidad por envase / paquete
+                      <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="top"
+                            title="Cuanto contiene UN solo envase o paquete. Ejemplo: una caja de acetaminofen con 4 blisters de 10 tabletas = 40 → escribe 40.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+                        </svg>
+                      </span>
+                    </label>
+                    <div class="input-group mb-1">
+                      <input type="number" class="form-control" id="inputCantidad"
+                             min="0.001" step="any" placeholder="Ej: 500" required>
+                      <span class="input-group-text" id="spanUnidad">-</span>
+                    </div>
+                    <!-- Botones preset -->
+                    <div id="presetsWrap" class="d-flex flex-wrap gap-1 mt-1">
+                      <!-- llenados por JS -->
+                    </div>
                   </div>
-                  <!-- Botones preset -->
-                  <div id="presetsWrap" class="d-flex flex-wrap gap-1 mt-1">
-                    <!-- llenados por JS -->
+
+                  <div class="mb-3">
+                    <label class="form-label">
+                      Numero de envases / paquetes
+                      <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="top"
+                            title="Cuantos envases o paquetes iguales recibiste. Ejemplo: si llegaron 3 cajas → escribe 3. El sistema multiplica: 40 × 3 = 120.">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+                        </svg>
+                      </span>
+                    </label>
+                    <input type="number" class="form-control" id="inputUnidades"
+                           min="1" step="1" placeholder="Ej: 3" required disabled>
                   </div>
+
+                  <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                    <span class="text-muted">Total:</span>
+                    <span id="spanTotal" class="fw-bold text-success">-</span>
+                  </div>
+
                 </div>
 
-                <div class="mb-3">
-                  <label class="form-label">Numero de envases / paquetes</label>
-                  <input type="number" class="form-control" id="inputUnidades"
-                         min="1" step="1" value="1" required>
-                </div>
-
-                <div class="mb-3 p-3 bg-light rounded d-flex justify-content-between align-items-center">
-                  <span class="text-muted">Total:</span>
-                  <span id="spanTotal" class="fw-bold text-success">-</span>
-                </div>
-
-                <button type="submit" class="btn btn-verde w-100">Registrar</button>
+                <button type="submit" class="btn btn-verde w-100" id="btnRegistrar" disabled>Registrar</button>
               </form>
             </div>
           </div>
@@ -338,6 +372,7 @@
     document.getElementById("spanUnidad").textContent = "-";
     document.getElementById("presetsWrap").style.display = "none";
     document.getElementById("spanTotal").textContent = "-";
+    actualizarPasos();
     renderLista();
   });
 
@@ -438,6 +473,7 @@
     document.getElementById("spanUnidad").textContent = "-";
     document.getElementById("presetsWrap").style.display = "none";
     document.getElementById("spanTotal").textContent = "-";
+    actualizarPasos();
     cerrarLista();
   }
 
@@ -575,6 +611,25 @@
     } else {
       spanTotal.textContent = "-";
     }
+    actualizarPasos();
+  }
+
+  // Revelado por pasos: muestra/habilita campos segun el avance del registro
+  function actualizarPasos() {
+    const hayProducto = !!productoSeleccionado;
+    const cant = parseFloat(document.getElementById("inputCantidad").value) || 0;
+    const num  = parseInt(document.getElementById("inputUnidades").value) || 0;
+    const camposExtra = document.getElementById("camposExtra");
+
+    // 1) Los campos de cantidad/numero solo aparecen tras elegir producto
+    camposExtra.classList.toggle("campo-visible", hayProducto);
+    camposExtra.classList.toggle("campo-oculto", !hayProducto);
+
+    // 2) "Numero de envases" se desbloquea cuando hay una cantidad valida
+    document.getElementById("inputUnidades").disabled = !(hayProducto && cant > 0);
+
+    // 3) "Registrar" se desbloquea solo cuando todo esta completo
+    document.getElementById("btnRegistrar").disabled = !(hayProducto && cant > 0 && num > 0);
   }
 
   document.getElementById("inputCantidad").addEventListener("input", recalcularTotal);
@@ -584,6 +639,12 @@
     e.preventDefault();
     if (!productoSeleccionado) {
       mostrarToast("Selecciona un producto", "warning");
+      return;
+    }
+    const cant = parseFloat(document.getElementById("inputCantidad").value) || 0;
+    const num  = parseInt(document.getElementById("inputUnidades").value) || 0;
+    if (cant <= 0 || num <= 0) {
+      mostrarToast("Completa la cantidad y el numero de envases", "warning");
       return;
     }
     const data = {
@@ -599,13 +660,14 @@
     if (res.ok) {
       // Resetear solo cantidad/unidades, mantener categoria seleccionada
       document.getElementById("inputCantidad").value = "";
-      document.getElementById("inputUnidades").value = "1";
+      document.getElementById("inputUnidades").value = "";
       document.getElementById("spanTotal").textContent = "-";
       document.getElementById("inputBusqueda").value = "";
       document.getElementById("productoId").value = "";
       document.getElementById("spanUnidad").textContent = "-";
       document.getElementById("presetsWrap").style.display = "none";
       productoSeleccionado = null;
+      actualizarPasos();
       await cargarRegistros();
       mostrarToast("Donacion registrada");
       document.getElementById("inputBusqueda").focus();
@@ -617,6 +679,10 @@
   function exportarCSV() { window.location.href = "/api/export"; }
 
   // ---- INIT ----
+  // Activa los tooltips (motor de Bootstrap, ya incluido — sin librerias extra)
+  [...document.querySelectorAll('[data-bs-toggle="tooltip"]')]
+    .forEach(el => new bootstrap.Tooltip(el));
+  actualizarPasos();   // estado inicial: solo el buscador visible, Registrar bloqueado
   cargarProductos();
   cargarRegistros();
 </script>
