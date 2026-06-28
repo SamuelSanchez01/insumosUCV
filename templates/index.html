@@ -44,6 +44,12 @@
     .info-icon { color: #9aa0a6; cursor: help; vertical-align: -2px;
                  margin-left: .3rem; transition: color .15s ease; }
     .info-icon:hover { color: #2c6e49; }
+
+    /* Icono de lupa dentro del buscador de producto (estilo Lucide) */
+    #inputBusqueda { padding-right: 2.1rem; }
+    .lupa-icon { position: absolute; right: .7rem; top: 50%;
+                 transform: translateY(-50%); color: #9aa0a6;
+                 pointer-events: none; z-index: 3; display: flex; }
   </style>
 </head>
 <body>
@@ -80,6 +86,12 @@
                   <div style="position:relative" id="productoWrap">
                     <input type="text" class="form-control" id="inputBusqueda"
                            placeholder="Buscar producto..." autocomplete="off">
+                    <span class="lupa-icon" aria-hidden="true">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                      </svg>
+                    </span>
                     <div id="listaProductos" class="search-list" style="display:none"></div>
                     <input type="hidden" id="productoId">
                   </div>
