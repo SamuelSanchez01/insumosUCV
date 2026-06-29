@@ -86,6 +86,30 @@ Boton "Exportar CSV"
 
 Descarga un archivo `insumos_YYYY-MM-DD.csv` con todos los registros, ordenados por categoria y producto. Compatible con Excel y LibreOffice.
 
+### Importar registros desde un CSV
+
+En la misma seccion **Acciones del Dia**:
+
+```
+Boton "Importar CSV"
+```
+
+Abre el explorador de archivos para elegir un `.csv`. El sistema acepta el mismo formato que genera "Exportar CSV":
+
+```
+Fecha,Categoria,Producto,Cantidad por Unidad,Unidad,Num. Unidades,Total
+```
+
+Notas sobre la importacion:
+
+- La columna **Total** se recalcula automaticamente (Cantidad por Unidad × Num. Unidades), no se toma del archivo.
+- La fila de encabezado es opcional: si la primera fila no es el encabezado, se asume que todas las filas son datos.
+- La **Fecha** acepta `AAAA-MM-DD HH:MM:SS` o solo `AAAA-MM-DD`; si se deja vacia, se usa la fecha/hora actual.
+- Si el **Producto** no existe todavia, se crea automaticamente con la Categoria y Unidad indicadas en esa fila.
+- Si el producto ya existe, se usa su Unidad y Categoria actuales (no se modifican), aunque el archivo traiga otro valor.
+- Las filas con datos invalidos (cantidad, numero de envases o fecha incorrectos) se omiten y se reportan, sin afectar al resto del archivo.
+- Al finalizar, se muestra un resumen con cuantos registros se importaron y, si hubo filas con problemas, el detalle de cada una.
+
 ### Agregar un producto nuevo
 
 1. Ir a la pestana **Productos**

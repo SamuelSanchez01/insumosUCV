@@ -159,6 +159,8 @@
             <div class="card-header">Acciones del Dia</div>
             <div class="card-body d-grid gap-2">
               <button class="btn btn-success" onclick="exportarCSV()">Exportar CSV</button>
+              <button class="btn btn-success" onclick="document.getElementById('inputImportCSV').click()">Importar CSV</button>
+              <input type="file" id="inputImportCSV" accept=".csv,text/csv" style="display:none">
             </div>
           </div>
         </div>
@@ -675,6 +677,49 @@
   // ---- EXPORT ----
 
   function exportarCSV() { window.location.href = "/api/export"; }
+
+  // ---- IMPORT ----
+
+  document.getElementById("inputImportCSV").addEventListener("change", async function (e) {
+    const file = e.target.files[0];
+    e.target.value = ""; // permite reintentar con el mismo archivo si hace falta
+
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      mostrarToast("El archivo debe ser un .csv", "danger");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    let body;
+    try {
+      const res = await fetch("/api/import", { method: "POST", body: formData });
+      body = await res.json();
+      if (!res.ok) {
+        mostrarToast(body.error || "Error al importar el archivo", "danger");
+        return;
+      }
+    } catch (err) {
+      mostrarToast("No se pudo conectar con el servidor", "danger");
+      return;
+    }
+
+    const problemas = [...body.errores, ...body.avisos];
+    let msg = `Importados ${body.insertados} de ${body.filas_total} registros`;
+    if (body.productos_creados > 0) {
+      msg += ` · ${body.productos_creados} producto${body.productos_creados === 1 ? "" : "s"} nuevo${body.productos_creados === 1 ? "" : "s"}`;
+    }
+    mostrarToast(msg, problemas.length ? "warning" : "success");
+
+    if (problemas.length) {
+      alert(`Importacion completada con observaciones:\n\n${problemas.join("\n")}`);
+    }
+
+    await cargarProductos();
+    await cargarRegistros();
+  });
 
   // ---- INIT ----
   // Activa los tooltips (motor de Bootstrap ya incluido localmente — sin CDN)
