@@ -141,6 +141,29 @@ Sin ese cambio, los registros importados quedan con la fecha del momento del imp
 demas funciona igual. Es una mejora separada al backend; no es necesaria para usar el resto
 del importador.
 
+## Prueba de humo (al desplegar)
+
+Antes de confiar en el importador en la maquina real del acopio, corre esta lista corta.
+Toma un par de minutos y cubre lo que no se puede verificar fuera del entorno real
+(Docker real, la LAN, y el cliente MCP de verdad).
+
+1. **App arriba:** `docker compose up --build -d` y abre `http://localhost:8080`
+   (o `http://IP-DEL-SERVIDOR:8080` desde otra PC de la LAN).
+2. **Conexion del MCP:** en Claude, pide *"verifica la conexion con insumos"*. `get_status`
+   debe devolver `ok: true` con la URL correcta. Si falla, revisa `INSUMOS_BASE_URL`
+   (IP y puerto), sobre todo si el MCP corre en una maquina distinta al servidor.
+3. **Dry-run primero:** *"importa `samples/productos.csv` en dry-run"*. Reporta `creados`
+   sin escribir nada.
+4. **Import real chico:** *"ahora importalo de verdad"* y confirma que los productos
+   aparecen en la pestana **Productos** de la web.
+5. **Registros:** *"importa `samples/registros.csv`"* y confirma que aparecen en la web con
+   el **Total** recalculado.
+6. **Idempotencia:** vuelve a importar `samples/productos.csv`: debe dar `omitidos_existentes`
+   y **no** duplicar. (Recuerda: el import de **registros** si duplica, ver aviso arriba.)
+7. **Respaldo:** *"exporta los registros a `~/respaldo.csv`"* y confirma que se descarga.
+8. **Limpieza:** borra los datos de prueba desde la web (o con `limpiar_inventario.sh` para
+   los registros) antes del uso real.
+
 ## Solucion de problemas
 
 - **"No se pudo conectar"**: revisa que la app este corriendo y que `INSUMOS_BASE_URL`
