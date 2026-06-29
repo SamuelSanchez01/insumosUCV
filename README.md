@@ -118,6 +118,39 @@ Pedira que escribas `CONFIRMAR` antes de proceder. Se recomienda exportar el CSV
 
 ---
 
+## Despliegue en red local (varios equipos)
+
+Pensado para el caso real: **varias laptops cliente que escriben contra una laptop servidor**
+por la red local. La parte de software ya queda lista para eso (ver abajo); lo demas es
+preparar bien el servidor.
+
+**En la laptop servidor (lo mas importante para que no se caiga):**
+
+- **Que no se duerma:** desactiva suspension e hibernacion y que no se apague al cerrar la
+  tapa; dejala enchufada (un UPS o power bank ayuda). Es el punto unico de falla.
+- **IP fija:** reserva/fija la IP del servidor en el router para que los clientes no la
+  pierdan al renovarse el DHCP. Los clientes entran a `http://IP-DEL-SERVIDOR:8080`.
+- **Reinicio automatico:** ya viene `restart: unless-stopped`, asi que si la app se cae el
+  contenedor vuelve solo.
+- **Respaldos:** exporta el CSV con frecuencia y, mejor aun, copia `data/inventario.db` a un
+  USB o a otra maquina cada cierto tiempo. Si la laptop muere, restauras en otra en minutos.
+
+**Confiabilidad que ya trae el software (probado con varios clientes + corte abrupto):**
+
+- **SQLite en modo WAL + `busy_timeout`:** varios equipos pueden leer y escribir a la vez sin
+  el error "database is locked" y sin bloquearse entre si.
+- **Durabilidad (`synchronous=NORMAL`):** lo que el cliente vio como guardado sobrevive a una
+  caida de la app o del contenedor. Verificado matando el servidor a mitad de escritura: las
+  escrituras confirmadas seguian ahi y la base quedo intacta (`integrity_check = ok`).
+- **Servidor WSGI (waitress):** en vez del servidor de desarrollo de Flask, para uso real con
+  varios clientes.
+- **Errores de entrada controlados:** datos mal formados responden 400, no tumban la peticion.
+
+> Nota: SQLite es mas que suficiente para ~5 equipos (un INSERT toma menos de un milisegundo).
+> No hace falta una base de datos mas pesada a esta escala.
+
+---
+
 ## Estructura del proyecto
 
 ```
