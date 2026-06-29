@@ -10,8 +10,15 @@ DB_PATH = "/data/inventario.db"
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
     conn.row_factory = sqlite3.Row
+    # Concurrency + durability for the LAN multi-client setup:
+    # WAL lets readers and the writer work at the same time (no reader/writer blocking),
+    # busy_timeout makes a second writer wait instead of failing with "database is locked",
+    # synchronous=NORMAL keeps committed data durable across an app/container crash.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
@@ -70,7 +77,7 @@ def get_productos():
 
 @app.route("/api/productos", methods=["POST"])
 def create_producto():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     nombre    = data.get("nombre", "").strip()
     unidad    = data.get("unidad", "").strip()
     categoria = data.get("categoria", "Otros").strip()
@@ -115,10 +122,13 @@ def get_registros():
 
 @app.route("/api/registros", methods=["POST"])
 def create_registro():
-    data = request.json
-    cantidad = float(data.get("cantidad_por_unidad", 0))
-    num      = int(data.get("num_unidades", 0))
-    pid      = int(data.get("producto_id", 0))
+    data = request.get_json(silent=True) or {}
+    try:
+        cantidad = float(data.get("cantidad_por_unidad", 0))
+        num      = int(data.get("num_unidades", 0))
+        pid      = int(data.get("producto_id", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Datos invalidos"}), 400
     if cantidad <= 0 or num <= 0 or pid <= 0:
         return jsonify({"error": "Datos invalidos"}), 400
     total = round(cantidad * num, 4)
@@ -172,4 +182,10 @@ def export_csv():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=8080, debug=False)
+    # Prefer a production WSGI server (waitress) for the multi-client LAN setup;
+    # fall back to Flask's dev server if waitress is not installed.
+    try:
+        from waitress import serve
+        serve(app, host="0.0.0.0", port=8080, threads=8)
+    except ImportError:
+        app.run(host="0.0.0.0", port=8080, debug=False)
